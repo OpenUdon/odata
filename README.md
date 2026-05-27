@@ -73,6 +73,11 @@ func main() {
 Consumer-readiness examples are tracked in later milestones in
 `memory-bank/milestone.md`.
 
+## Consumers
+
+See [Consumer Readiness](docs/consumer-readiness.md) for `apitools`, OpenUdon,
+and UWS source-profile planning boundaries.
+
 ## Verification
 
 ```bash
