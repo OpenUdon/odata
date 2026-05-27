@@ -1,0 +1,145 @@
+{
+  "$Version": "4.01",
+  "$EntityContainer": "Library.Default",
+  "Library": {
+    "$Alias": "Lib",
+    "Default": {
+      "$Kind": "EntityContainer",
+      "Books": {
+        "$Kind": "EntitySet",
+        "$Type": "Library.Book",
+        "$NavigationPropertyBinding": {
+          "Author": "Authors"
+        },
+        "@Org.OData.Capabilities.V1.SearchRestrictions": true
+      },
+      "Me": {
+        "$Kind": "Singleton",
+        "$Type": "Library.Author"
+      },
+      "SearchBooks": {
+        "$Kind": "FunctionImport",
+        "$Function": "Library.SearchBooks",
+        "$EntitySet": "Books",
+        "$IncludeInServiceDocument": true
+      },
+      "ResetLibrary": {
+        "$Kind": "ActionImport",
+        "$Action": "Library.ResetLibrary"
+      }
+    },
+    "Book": {
+      "$Kind": "EntityType",
+      "$Key": ["ID"],
+      "$HasStream": true,
+      "ID": {
+        "$Type": "Edm.String",
+        "$Nullable": false
+      },
+      "Title": {
+        "$Type": "Edm.String",
+        "$MaxLength": 128
+      },
+      "Status": {
+        "$Type": "Library.BookStatus"
+      },
+      "Tags": {
+        "$Type": "Edm.String",
+        "$Collection": true
+      },
+      "Author": {
+        "$Kind": "NavigationProperty",
+        "$Type": "Library.Author",
+        "$Nullable": false,
+        "$Partner": "Books",
+        "$ReferentialConstraint": {
+          "AuthorID": "ID"
+        }
+      }
+    },
+    "Author": {
+      "$Kind": "EntityType",
+      "$Key": ["ID"],
+      "ID": {
+        "$Type": "Edm.String",
+        "$Nullable": false
+      },
+      "Books": {
+        "$Kind": "NavigationProperty",
+        "$Type": "Library.Book",
+        "$Collection": true,
+        "$Partner": "Author"
+      }
+    },
+    "Address": {
+      "$Kind": "ComplexType",
+      "City": {
+        "$Type": "Edm.String"
+      }
+    },
+    "BookStatus": {
+      "$Kind": "EnumType",
+      "Unknown": 0,
+      "Available": 1,
+      "CheckedOut": 2
+    },
+    "SearchBooks": [
+      {
+        "$Kind": "Function",
+        "$Parameter": [
+          {
+            "$Name": "term",
+            "$Type": "Edm.String",
+            "$Nullable": false
+          }
+        ],
+        "$ReturnType": {
+          "$Type": "Library.Book",
+          "$Collection": true
+        }
+      }
+    ],
+    "RelatedBooks": [
+      {
+        "$Kind": "Function",
+        "$IsBound": true,
+        "$EntitySetPath": "bindingParameter",
+        "$Parameter": [
+          {
+            "$Name": "bindingParameter",
+            "$Type": "Library.Book",
+            "$Nullable": false
+          }
+        ],
+        "$ReturnType": {
+          "$Type": "Library.Book",
+          "$Collection": true
+        }
+      }
+    ],
+    "CheckOutBook": [
+      {
+        "$Kind": "Action",
+        "$IsBound": true,
+        "$Parameter": [
+          {
+            "$Name": "bindingParameter",
+            "$Type": "Library.Book",
+            "$Nullable": false
+          },
+          {
+            "$Name": "user",
+            "$Type": "Edm.String",
+            "$Nullable": false
+          }
+        ],
+        "$ReturnType": {
+          "$Type": "Library.Book"
+        }
+      }
+    ],
+    "ResetLibrary": {
+      "$Kind": "Action"
+    }
+  }
+}

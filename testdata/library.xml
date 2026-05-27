@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="4.0" xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx">
+  <edmx:DataServices>
+    <Schema Namespace="Library" Alias="Lib" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+      <EntityContainer Name="Default">
+        <EntitySet Name="Books" EntityType="Library.Book">
+          <NavigationPropertyBinding Path="Author" Target="Authors" />
+          <Annotation Term="Org.OData.Capabilities.V1.SearchRestrictions" Bool="true" />
+        </EntitySet>
+        <Singleton Name="Me" Type="Library.Author" />
+        <FunctionImport Name="SearchBooks" Function="Library.SearchBooks" EntitySet="Books" IncludeInServiceDocument="true" />
+        <ActionImport Name="ResetLibrary" Action="Library.ResetLibrary" />
+      </EntityContainer>
+      <EntityType Name="Book" HasStream="true">
+        <Key>
+          <PropertyRef Name="ID" />
+        </Key>
+        <Property Name="ID" Type="Edm.String" Nullable="false" />
+        <Property Name="Title" Type="Edm.String" MaxLength="128" />
+        <Property Name="Status" Type="Library.BookStatus" />
+        <Property Name="Tags" Type="Collection(Edm.String)" />
+        <NavigationProperty Name="Author" Type="Library.Author" Nullable="false" Partner="Books">
+          <ReferentialConstraint Property="AuthorID" ReferencedProperty="ID" />
+        </NavigationProperty>
+      </EntityType>
+      <EntityType Name="Author">
+        <Key>
+          <PropertyRef Name="ID" />
+        </Key>
+        <Property Name="ID" Type="Edm.String" Nullable="false" />
+        <NavigationProperty Name="Books" Type="Collection(Library.Book)" Partner="Author" />
+      </EntityType>
+      <ComplexType Name="Address">
+        <Property Name="City" Type="Edm.String" />
+      </ComplexType>
+      <EnumType Name="BookStatus" IsFlags="false">
+        <Member Name="Unknown" Value="0" />
+        <Member Name="Available" Value="1" />
+        <Member Name="CheckedOut" Value="2" />
+      </EnumType>
+      <Function Name="SearchBooks" IsBound="false">
+        <Parameter Name="term" Type="Edm.String" Nullable="false" />
+        <ReturnType Type="Collection(Library.Book)" />
+      </Function>
+      <Function Name="RelatedBooks" IsBound="true" EntitySetPath="bindingParameter">
+        <Parameter Name="bindingParameter" Type="Library.Book" Nullable="false" />
+        <ReturnType Type="Collection(Library.Book)" />
+      </Function>
+      <Action Name="CheckOutBook" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Library.Book" Nullable="false" />
+        <Parameter Name="user" Type="Edm.String" Nullable="false" />
+        <ReturnType Type="Library.Book" />
+      </Action>
+      <Action Name="ResetLibrary" IsBound="false" />
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>
