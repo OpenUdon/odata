@@ -3,7 +3,8 @@
 `odata` is ready for source-aware consumers that need local OData CSDL metadata
 without calling OData services.
 
-M5 will add non-normative UWS 1.4 source-profile planning evidence.
+For UWS 1.4 planning evidence, see
+[UWS Source-Profile Evidence](uws-source-profile-evidence.md).
 
 ## Stable API Surface
 
