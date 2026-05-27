@@ -44,6 +44,9 @@ func main() {
 	}
 
 	fmt.Printf("%d schemas\n", len(model.Schemas))
+	if op, ok := model.OperationByID("entitySet.Books.query"); ok {
+		fmt.Printf("%s returns %s\n", op.ID, op.ReturnType.Type)
+	}
 	if book, ok := model.EntityTypeByName("Library.Book"); ok {
 		fmt.Printf("%s has %d properties\n", book.FullName, len(book.Properties))
 	}
@@ -56,11 +59,19 @@ func main() {
 - `ParseXML` parses CSDL XML bytes.
 - `ParseJSON` parses CSDL JSON bytes.
 - `ParseJSONMap` parses an already-decoded CSDL JSON object.
+- `OperationByID` looks up selectable entity, function, and action operation
+  summaries.
 - `EntityTypeByName`, `ComplexTypeByName`, and `EnumTypeByName` look up parsed
   types by fully-qualified OData name.
+- `EntityContainerByName` looks up parsed entity containers by fully-qualified
+  OData name.
+- `SelectorAliases` lists canonical operation IDs and local JSON Pointer-style
+  selectors.
+- `ResolveSelector` resolves operation IDs, `#/operations/{id}`, container,
+  entity set, singleton, type, function, and action selectors.
 
-Selector APIs and consumer-readiness examples are tracked in later milestones
-in `memory-bank/milestone.md`.
+Consumer-readiness examples are tracked in later milestones in
+`memory-bank/milestone.md`.
 
 ## Verification
 

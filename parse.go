@@ -78,6 +78,9 @@ func ParseXML(data []byte) (*Model, error) {
 	if len(model.Schemas) == 0 {
 		return nil, fmt.Errorf("OData CSDL XML contains no schemas")
 	}
+	if err := buildOperationSummaries(model); err != nil {
+		return nil, err
+	}
 	return model, nil
 }
 
@@ -127,6 +130,9 @@ func ParseJSONMap(raw map[string]any) (*Model, error) {
 	if len(model.Schemas) == 0 {
 		return nil, fmt.Errorf("OData CSDL JSON contains no schemas")
 	}
+	if err := buildOperationSummaries(model); err != nil {
+		return nil, err
+	}
 	return model, nil
 }
 
@@ -155,6 +161,195 @@ func rejectTrailingXML(dec *xml.Decoder) error {
 		}
 		return fmt.Errorf("parse OData CSDL XML: trailing data after root element")
 	}
+}
+
+func buildOperationSummaries(model *Model) error {
+	if model == nil {
+		return nil
+	}
+	seen := map[string]bool{}
+	add := func(summary *OperationSummary) error {
+		if summary == nil {
+			return nil
+		}
+		if strings.TrimSpace(summary.ID) == "" {
+			return fmt.Errorf("OData operation summary has empty ID")
+		}
+		if seen[summary.ID] {
+			return fmt.Errorf("duplicate OData operation summary %q", summary.ID)
+		}
+		seen[summary.ID] = true
+		model.Operations = append(model.Operations, summary)
+		return nil
+	}
+	importedFunctions := map[string]bool{}
+	importedActions := map[string]bool{}
+	functionOverloads := operationOverloadCounts(model.Functions)
+	actionOverloads := operationOverloadCounts(model.Actions)
+	for _, schema := range model.Schemas {
+		for _, container := range schema.EntityContainers {
+			for _, set := range container.EntitySets {
+				if err := add(entitySetSummary(container, set, "read")); err != nil {
+					return err
+				}
+				if err := add(entitySetSummary(container, set, "query")); err != nil {
+					return err
+				}
+			}
+			for _, singleton := range container.Singletons {
+				if err := add(singletonSummary(container, singleton)); err != nil {
+					return err
+				}
+			}
+			for _, imp := range container.FunctionImports {
+				op := firstOperation(model.Functions[imp.Operation])
+				if err := add(importSummary("function", container, imp, op)); err != nil {
+					return err
+				}
+				importedFunctions[imp.Operation] = true
+			}
+			for _, imp := range container.ActionImports {
+				op := firstOperation(model.Actions[imp.Operation])
+				if err := add(importSummary("action", container, imp, op)); err != nil {
+					return err
+				}
+				importedActions[imp.Operation] = true
+			}
+		}
+		for _, op := range schema.Functions {
+			if importedFunctions[op.FullName] && !op.IsBound {
+				continue
+			}
+			if err := add(operationDefinitionSummary("function", op, functionOverloads[op.FullName] > 1)); err != nil {
+				return err
+			}
+		}
+		for _, op := range schema.Actions {
+			if importedActions[op.FullName] && !op.IsBound {
+				continue
+			}
+			if err := add(operationDefinitionSummary("action", op, actionOverloads[op.FullName] > 1)); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func entitySetSummary(container *EntityContainer, set *EntitySet, verb string) *OperationSummary {
+	return &OperationSummary{
+		ID:              "entitySet." + set.Name + "." + verb,
+		Kind:            "entitySet." + verb,
+		Name:            set.Name,
+		Container:       container.FullName,
+		EntitySet:       set.Name,
+		EntityType:      set.EntityType,
+		ReturnType:      &ReturnType{Type: set.EntityType, Collection: verb == "query", Nullable: false},
+		Annotations:     set.Annotations,
+		QueryRelevant:   verb == "query",
+		NavigationPaths: navigationBindingPaths(set.NavigationPropertyBindings),
+	}
+}
+
+func singletonSummary(container *EntityContainer, singleton *Singleton) *OperationSummary {
+	return &OperationSummary{
+		ID:              "singleton." + singleton.Name + ".read",
+		Kind:            "singleton.read",
+		Name:            singleton.Name,
+		Container:       container.FullName,
+		Singleton:       singleton.Name,
+		EntityType:      singleton.Type,
+		ReturnType:      &ReturnType{Type: singleton.Type, Nullable: false},
+		Annotations:     singleton.Annotations,
+		NavigationPaths: navigationBindingPaths(singleton.NavigationPropertyBindings),
+	}
+}
+
+func importSummary(kind string, container *EntityContainer, imp *OperationImport, op *Operation) *OperationSummary {
+	summary := &OperationSummary{
+		ID:          kind + "." + container.Name + "." + imp.Name,
+		Kind:        kind,
+		Name:        imp.Name,
+		Container:   container.FullName,
+		Operation:   imp.Operation,
+		Annotations: append(append([]*Annotation(nil), imp.Annotations...), annotationsFromOperation(op)...),
+	}
+	if op != nil {
+		summary.Bound = op.IsBound
+		summary.EntitySetPath = op.EntitySetPath
+		summary.Parameters = op.Parameters
+		summary.ReturnType = op.ReturnType
+	}
+	return summary
+}
+
+func operationDefinitionSummary(kind string, op *Operation, overloaded bool) *OperationSummary {
+	if op == nil {
+		return nil
+	}
+	id := kind + "." + op.FullName
+	if overloaded {
+		id += operationSignature(op.Parameters)
+	}
+	return &OperationSummary{
+		ID:            id,
+		Kind:          kind,
+		Name:          op.Name,
+		Operation:     op.FullName,
+		Bound:         op.IsBound,
+		EntitySetPath: op.EntitySetPath,
+		Parameters:    op.Parameters,
+		ReturnType:    op.ReturnType,
+		Annotations:   op.Annotations,
+	}
+}
+
+func operationOverloadCounts(index map[string][]*Operation) map[string]int {
+	out := map[string]int{}
+	for fullName, ops := range index {
+		for _, op := range ops {
+			if op != nil {
+				out[fullName]++
+			}
+		}
+	}
+	return out
+}
+
+func operationSignature(params []*Parameter) string {
+	names := make([]string, 0, len(params))
+	for _, param := range params {
+		if param != nil {
+			names = append(names, param.Name)
+		}
+	}
+	return "(" + strings.Join(names, ",") + ")"
+}
+
+func annotationsFromOperation(op *Operation) []*Annotation {
+	if op == nil {
+		return nil
+	}
+	return op.Annotations
+}
+
+func firstOperation(ops []*Operation) *Operation {
+	for _, op := range ops {
+		if op != nil {
+			return op
+		}
+	}
+	return nil
+}
+
+func navigationBindingPaths(bindings []*NavigationPropertyBinding) []string {
+	out := make([]string, 0, len(bindings))
+	for _, binding := range bindings {
+		if binding != nil && binding.Path != "" {
+			out = append(out, binding.Path)
+		}
+	}
+	return out
 }
 
 func addXMLSchema(model *Model, raw xmlSchema) error {

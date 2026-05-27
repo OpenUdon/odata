@@ -15,6 +15,7 @@ type Model struct {
 	Version         string
 	EntityContainer string
 	Schemas         []*Schema
+	Operations      []*OperationSummary
 	EntityTypes     map[string]*StructuredType
 	ComplexTypes    map[string]*StructuredType
 	EnumTypes       map[string]*EnumType
@@ -22,6 +23,26 @@ type Model struct {
 	Actions         map[string][]*Operation
 	RawJSON         map[string]any
 	RawXML          string
+}
+
+// OperationSummary describes a selectable OData entity, function, or action
+// operation.
+type OperationSummary struct {
+	ID              string
+	Kind            string
+	Name            string
+	Container       string
+	EntitySet       string
+	Singleton       string
+	EntityType      string
+	Operation       string
+	Bound           bool
+	EntitySetPath   string
+	Parameters      []*Parameter
+	ReturnType      *ReturnType
+	Annotations     []*Annotation
+	QueryRelevant   bool
+	NavigationPaths []string
 }
 
 // Schema describes an OData schema namespace.
@@ -209,6 +230,42 @@ func (m *Model) EntityTypeByName(name string) (*StructuredType, bool) {
 	}
 	typ, ok := m.EntityTypes[name]
 	return typ, ok
+}
+
+// EntityContainerByName returns an entity container by fully-qualified name.
+func (m *Model) EntityContainerByName(name string) (*EntityContainer, bool) {
+	if m == nil {
+		return nil, false
+	}
+	name = normalizeName(name)
+	if name == "" {
+		return nil, false
+	}
+	for _, schema := range m.Schemas {
+		for _, container := range schema.EntityContainers {
+			if container != nil && container.FullName == name {
+				return container, true
+			}
+		}
+	}
+	return nil, false
+}
+
+// OperationByID returns a selectable OData operation summary by canonical ID.
+func (m *Model) OperationByID(id string) (*OperationSummary, bool) {
+	if m == nil {
+		return nil, false
+	}
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return nil, false
+	}
+	for _, op := range m.Operations {
+		if op != nil && op.ID == id {
+			return op, true
+		}
+	}
+	return nil, false
 }
 
 // ComplexTypeByName returns a complex type by fully-qualified name.
