@@ -60,6 +60,30 @@ func TestParseJSONMap(t *testing.T) {
 	}
 }
 
+func TestParseJSONDefaultsPropertyTypeToString(t *testing.T) {
+	model, err := odata.ParseJSON([]byte(`{
+		"$Version": "4.0",
+		"Example": {
+			"Book": {
+				"$Kind": "EntityType",
+				"$Key": ["ID"],
+				"ID": {"$Type": "Edm.Int32"},
+				"Title": {}
+			}
+		}
+	}`))
+	if err != nil {
+		t.Fatalf("ParseJSON failed: %v", err)
+	}
+	book, ok := model.EntityTypeByName("Example.Book")
+	if !ok {
+		t.Fatal("Example.Book missing")
+	}
+	if len(book.Properties) != 2 || book.Properties[1].Name != "Title" || book.Properties[1].Type != "Edm.String" {
+		t.Fatalf("book properties = %#v", book.Properties)
+	}
+}
+
 func TestTypeLookupMisses(t *testing.T) {
 	model, err := odata.ParseXML(readFixture(t, "testdata/library.xml"))
 	if err != nil {

@@ -831,7 +831,11 @@ func propertyFromXML(raw xmlProperty) (*Property, error) {
 }
 
 func propertyFromJSON(name string, raw map[string]any) (*Property, error) {
-	typ, collection := normalizeTypeRef(stringValue(raw["$Type"]))
+	typeRef := stringValue(raw["$Type"])
+	if typeRef == "" {
+		typeRef = "Edm.String"
+	}
+	typ, collection := normalizeTypeRef(typeRef)
 	if typ == "" {
 		return nil, fmt.Errorf("OData property %s has empty type", name)
 	}
